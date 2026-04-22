@@ -93,18 +93,19 @@ def guardar_visualizacion(
     matriz = tablero_para_imagen(tablero, mascara=mascara)
 
     # 0..8, 9=mina, 10=fuera de forma
+    # Paleta de colores sincronizada 100% con MARIE.js
     cmap = ListedColormap([
-        "#d9d9d9",  # 0
-        "#0000ff",  # 1
-        "#008000",  # 2
-        "#ff0000",  # 3
-        "#00008b",  # 4
-        "#8b0000",  # 5
-        "#00ced1",  # 6
-        "#8a2be2",  # 7
-        "#ffffff",  # 8
-        "#000000",  # mina
-        "#333333",  # fuera de forma
+        "#cccccc",  # 0: gris claro
+        "#0000ff",  # 1: azul
+        "#00ff00",  # 2: verde
+        "#ff0000",  # 3: rojo
+        "#0000aa",  # 4: azul oscuro
+        "#880000",  # 5: rojo oscuro
+        "#00ffff",  # 6: cian (turquesa)
+        "#aa00ff",  # 7: violeta
+        "#ffffff",  # 8: blanco
+        "#000000",  # mina: negro
+        "#222222",  # fuera de forma: gris oscuro
     ])
 
     plt.figure(figsize=(8, 8))
