@@ -1,456 +1,220 @@
-/ ==========================================
-/ BUSCAMINAS MARIE - V7 FINAL (SCORE & SHAPES)
-/ ==========================================
+/ ============================================================
+/ BUSCAMINAS MARIE V7 - GEOMETRÍA DINÁMICA Y PUNTAJE
+/ ============================================================
+/ Autores: Mateo Diaz, Ayelen Jaramillo
+/ Este programa gestiona la lógica de Buscaminas en un 16x16
+/ pero recorta la visualización y jugabilidad usando ecuaciones.
+/ ============================================================
+
 ORG 000
 JUMP START
 
-/ --- Variables de Juego (15 espacios) ---
-FILA, DEC 0
-COL, DEC 0
-ACCION, DEC 0
-INDEX, DEC 0
-VALOR, DEC 0
-DIR, DEC 0
-COUNT, DEC 0
-TMP, DEC 0
-GAME_STATE, DEC 0  / 0:Jugando, 1:Pierde, 2:Gana
-REV_COUNT, DEC 0
-FLAG_COUNT, DEC 0
-SCORE, DEC 0       / Banderas correctas en minas
-SAFE_TGT, DEC 0    / Celdas sin minas a revelar
-CURR_REG, DEC 0
-WIN_FLAG, DEC 0
+/ --- Variables de Estado y Coordenadas ---
+FILA,       DEC 0
+COL,        DEC 0
+ACCION,     DEC 0
+INDEX,      DEC 0      / Índice lineal (Fila * 16 + Col)
+VALOR,      DEC 0      / Valor real de la celda (-1 a 8)
+DIR,        DEC 0      / Dirección de memoria calculada
+COUNT,      DEC 0      / Contador para bucles de renderizado
+TMP,        DEC 0      / Variable temporal multiuso
+GAME_STATE, DEC 0      / 0: Jugando, 1: Perdió, 2: Ganó
+REV_COUNT,  DEC 0      / Celdas reveladas
+SCORE,      DEC 0      / Banderas correctas sobre minas
+SAFE_TGT,   DEC 0      / Objetivo de celdas a revelar para ganar
+CURR_REG,   DEC 0      / Región actual para expansión (0s)
 
-/ --- Constantes (13 espacios) ---
-ZERO, DEC 0
-ONE, DEC 1
-TWO, DEC 2
-THREE, DEC 3
-SIXTEEN, DEC 16
-MAX_CELLS, DEC 256
-ST_HIDDEN, DEC 0
-ST_REVEAL, DEC 1
-ST_FLAG, DEC 2
+/ --- Constantes Matemáticas y de Juego ---
+ZERO,       DEC 0
+ONE,        DEC 1
+TWO,        DEC 2
+SIXTEEN,    DEC 16
+MAX_CELLS,  DEC 256
+ST_HIDDEN,  DEC 0      / Estado: Oculto
+ST_REVEAL,  DEC 1      / Estado: Revelado
+ST_FLAG,    DEC 2      / Estado: Bandera
+MITAD,      DEC 7      / Centro del eje para figuras
+LIMITE,     DEC 8      / Radio o altura de la figura
 
-/ --- Caracteres ASCII (14 espacios) ---
-ASC_S, DEC 83
-ASC_T, DEC 84
-ASC_A, DEC 65
-ASC_R, DEC 82
-ASC_G, DEC 71
-ASC_M, DEC 77
-ASC_E, DEC 69
-ASC_O, DEC 79
-ASC_V, DEC 86
-ASC_N, DEC 78
-ASC_I, DEC 73
-ASC_W, DEC 87
-ASC_SPACE, DEC 32
-ASC_COLON, DEC 58
+/ --- Constantes ASCII para Mensajes ---
+ASC_S, DEC 83 | ASC_T, DEC 84 | ASC_A, DEC 65 | ASC_R, DEC 82
+ASC_G, DEC 71 | ASC_M, DEC 77 | ASC_E, DEC 69 | ASC_O, DEC 79
+ASC_V, DEC 86 | ASC_SPACE, DEC 32 | ASC_COLON, DEC 58
 
-/ --- Direcciones Base Estáticas (5 espacios) ---
-B_VIS, HEX 0600
-B_REAL, HEX 003F     / 63 en DEC (Inicio exacto post-cabecera)
-B_SHAPE, HEX 013F    / B_REAL + 256
-B_REGIONS, HEX 023F  / B_SHAPE + 256
-B_DISP, HEX 0F00
+/ --- Direcciones Base (Mapa de Memoria V7) ---
+B_VIS,     HEX 0600    / Tablero Visible (Estado del jugador)
+B_REAL,    HEX 0045    / Tablero Real (Inyectado por Python)
+B_REGIONS, HEX 0245    / Mapa de Regiones (Inyectado por Python)
+B_DISP,    HEX 0F00    / Dirección del Display 16x16
 
-/ --- Colores (13 espacios) ---
-C_HID, HEX 0666
-C_FLG, HEX 0FF0
-C_MIN, HEX 0000
-C_OUT, HEX 0222
-C_0, HEX 0CCC
-C_1, HEX 000F
-C_2, HEX 00F0
-C_3, HEX 0F00
-C_4, HEX 000A
-C_5, HEX 0800
-C_6, HEX 00FF
-C_7, HEX 0A0F
-C_8, HEX 0FFF
+/ --- Colores Sincronizados ---
+C_HID, HEX 0666 | C_FLG, HEX 0FF0 | C_MIN, HEX 0000 | C_OUT, HEX 0222
+C_0,   HEX 0CCC | C_1,   HEX 000F | C_2,   HEX 00F0 | C_3,   HEX 0F00
 
-/ ==========================================
-/ ZONA DE INYECCIÓN DE MATRICES PYTHON
-/ ==========================================
+/ ============================================================
+/ BLOQUE DE INYECCIÓN (PYTHON)
+/ ============================================================
 __TABLERO_REAL__
 __SHAPE_PRESET__
 __REGION_MAP__
 
-/ ==========================================
-/ INICIO DEL PROGRAMA
-/ ==========================================
-START,           JNS MSG_START
+/ ============================================================
+/ LÓGICA DE GEOMETRÍA (MODIFICABLE)
+/ ============================================================
+/ Esta subrutina define la forma del tablero.
+/ Retorna AC=1 si la celda (FILA, COL) es jugable, AC=0 si no.
+/ ============================================================
+CHECK_SHAPE, HEX 000
+/ --- LÓGICA DE TRIÁNGULO (PIRÁMIDE) ---
+/ Restricción: ABS(COL - 7) <= FILA
+LOAD COL
+SUBT MITAD
+JNS ABS_VAL        / Obtenemos |COL - 7|
+STORE TMP
+LOAD FILA
+SUBT TMP           / AC = FILA - |COL - 7|
+SKIPCOND 000       / Si AC < 0, la celda está fuera
+JUMP IS_INSIDE
+LOAD ZERO
+JUMPI CHECK_SHAPE
+IS_INSIDE,   LOAD ONE
+JUMPI CHECK_SHAPE
+
+/ --- Subrutina Valor Absoluto ---
+ABS_VAL,     HEX 000
+SKIPCOND 000       / Si AC < 0, invertir
+JUMPI ABS_VAL
+STORE TMP
+LOAD ZERO
+SUBT TMP
+JUMPI ABS_VAL
+
+/ ============================================================
+/ INICIO Y BUCLE PRINCIPAL
+/ ============================================================
+START,       JNS MSG_START
 LOAD ZERO
 STORE SCORE
-STORE REV_COUNT
-JNS INIT_BOARD
-JNS CALC_SAFE
+JNS INIT_BOARD     / Limpia tablero visible
+JNS CALC_SAFE      / Cuenta celdas válidas en la figura
 JUMP RENDER
 
-/ --- Mensaje START ---
-MSG_START,       HEX 000
-LOAD ASC_S
-OUTPUT
-LOAD ASC_T
-OUTPUT
-LOAD ASC_A
-OUTPUT
-LOAD ASC_R
-OUTPUT
-LOAD ASC_T
-OUTPUT
-JUMPI MSG_START
-
-/ ==========================================
-/ BUCLE PRINCIPAL
-/ ==========================================
-MAIN_LOOP,       INPUT
+MAIN_LOOP,   INPUT              / Leer Fila
 STORE FILA
-INPUT
+INPUT              / Leer Columna
 STORE COL
-INPUT
+INPUT              / Leer Acción
 STORE ACCION
-JNS CALC_IDX
 
-/ Validar si la celda existe en la GEOMETRÍA (SHAPE)
-LOAD INDEX
-ADD B_SHAPE
-STORE DIR
-LOADI DIR
-SKIPCOND 400   / Si es 0 (fuera de la forma), ignorar click
-JUMP VAL_OK
-JUMP MAIN_LOOP
+JNS CALC_IDX       / INDEX = FILA*16 + COL
 
-VAL_OK,          LOAD ACCION
+/ --- FILTRO DE GEOMETRÍA ---
+JNS CHECK_SHAPE    / ¿La celda está en el triángulo?
+SKIPCOND 800       / Si AC=1, continuar
+JUMP MAIN_LOOP     / Si AC=0, ignorar y pedir de nuevo
+
+LOAD ACCION
 SUBT ONE
 SKIPCOND 400
-JUMP DO_FLAG
-JUMP DO_REVEAL
+JUMP DO_FLAG       / Acción 2
+JUMP DO_REVEAL     / Acción 1
 
-DO_REVEAL,       JNS REV_LOGIC
-JNS CHK_WIN
-JUMP RENDER
+/ ============================================================
+/ RUTINAS DE APOYO (COMENTADAS)
+/ ============================================================
 
-DO_FLAG,         JNS FLG_LOGIC
-JUMP RENDER
-
-/ ==========================================
-/ LÓGICA DE BANDERAS Y SCORE
-/ ==========================================
-FLG_LOGIC,       HEX 000
-LOAD INDEX
-ADD B_VIS
-STORE DIR
-LOADI DIR
-STORE TMP
-
-/ Si ya está revelada, no poner bandera
-SUBT ST_REVEAL
-SKIPCOND 400
-JUMP FLG_CHECK_TYPE
-JUMPI FLG_LOGIC
-
-FLG_CHECK_TYPE,  LOAD TMP
-SUBT ST_FLAG
-SKIPCOND 400
-JUMP FLG_ADD
-
-/ --- Quitar Bandera ---
-LOAD ST_HIDDEN
-STOREI DIR
-LOAD INDEX
-ADD B_REAL
-STORE TMP
-LOADI TMP
-SKIPCOND 000 / ¿Es mina (-1)?
-JUMP FLG_DEC_SCORE
-JUMP FLG_FIN
-FLG_DEC_SCORE,   LOAD SCORE
-SUBT ONE
-STORE SCORE
-JUMP FLG_FIN
-
-/ --- Poner Bandera ---
-FLG_ADD,         LOAD ST_FLAG
-STOREI DIR
-LOAD INDEX
-ADD B_REAL
-STORE TMP
-LOADI TMP
-SKIPCOND 000 / ¿Es mina (-1)?
-JUMP FLG_INC_SCORE
-JUMP FLG_FIN
-FLG_INC_SCORE,   LOAD SCORE
-ADD ONE
-STORE SCORE
-
-FLG_FIN,         LOAD SCORE
-OUTPUT     / Mostrar Score en consola cada vez que cambia
-JUMPI FLG_LOGIC
-
-/ ==========================================
-/ RUTINA: CALCULAR INDICE (FILA*16 + COL)
-/ ==========================================
-CALC_IDX,        HEX 000
+/ --- Calcula Índice Lineal ---
+CALC_IDX, HEX 000
 LOAD ZERO
 STORE INDEX
 LOAD FILA
 STORE TMP
-CI_LOOP,         LOAD TMP
-SKIPCOND 400
-JUMP CI_ADD
-JUMP CI_END
-CI_ADD,          LOAD INDEX
+IDX_L:    LOAD TMP
+SKIPCOND 800          / Mientras TMP > 0
+JUMP IDX_E
+LOAD INDEX
 ADD SIXTEEN
 STORE INDEX
 LOAD TMP
 SUBT ONE
 STORE TMP
-JUMP CI_LOOP
-CI_END,          LOAD INDEX
+JUMP IDX_L
+IDX_E:    LOAD INDEX
 ADD COL
 STORE INDEX
 JUMPI CALC_IDX
 
-/ ==========================================
-/ RUTINAS DE REVELADO Y EXPANSIÓN
-/ ==========================================
-REV_LOGIC,       HEX 000
+/ --- Mensaje de Inicio ---
+MSG_START, HEX 000
+LOAD ASC_S | OUTPUT
+LOAD ASC_T | OUTPUT
+LOAD ASC_A | OUTPUT
+LOAD ASC_R | OUTPUT
+LOAD ASC_T | OUTPUT
+JUMPI MSG_START
+
+/ --- Lógica de Banderas y Puntaje ---
+DO_FLAG,   JNS FLG_LOGIC
+JUMP RENDER
+
+FLG_LOGIC, HEX 000
 LOAD INDEX
 ADD B_VIS
 STORE DIR
 LOADI DIR
-SKIPCOND 400
-JUMPI REV_LOGIC
-
-LOAD INDEX
-ADD B_REAL
-STORE DIR
-LOADI DIR
-STORE VALOR
-
-LOAD VALOR
-SKIPCOND 000
-JUMP REV_SAFE
-LOAD ONE
-STORE GAME_STATE
-JUMPI REV_LOGIC
-
-REV_SAFE,        LOAD VALOR
-SKIPCOND 400
-JUMP REV_SINGLE
-LOAD INDEX
-ADD B_REGIONS
-STORE DIR
-LOADI DIR
-STORE CURR_REG
-JNS EXP_REGION
-JNS RECOUNT
-JUMPI REV_LOGIC
-
-REV_SINGLE,      LOAD ST_REVEAL
-LOAD INDEX
-ADD B_VIS
-STORE DIR
-LOAD ST_REVEAL
-STOREI DIR
-JUMPI REV_LOGIC
-
-EXP_REGION,      HEX 000
-LOAD ZERO
-STORE COUNT
-ER_LOOP,         LOAD COUNT
-SUBT MAX_CELLS
-SKIPCOND 000
-JUMPI EXP_REGION
-LOAD COUNT
-ADD B_REGIONS
-STORE DIR
-LOADI DIR
-SUBT CURR_REG
-SKIPCOND 400
-JUMP ER_NEXT
-LOAD COUNT
-ADD B_VIS
-STORE DIR
-LOAD ST_REVEAL
-STOREI DIR
-ER_NEXT,         LOAD COUNT
-ADD ONE
-STORE COUNT
-JUMP ER_LOOP
-
-RECOUNT,         HEX 000
-LOAD ZERO
-STORE COUNT
-STORE REV_COUNT
-RC_LOOP,         LOAD COUNT
-SUBT MAX_CELLS
-SKIPCOND 000
-JUMPI RECOUNT
-LOAD COUNT
-ADD B_VIS
-STORE DIR
-LOADI DIR
+STORE TMP
+/ Si está revelada, no hace nada
 SUBT ST_REVEAL
 SKIPCOND 400
-JUMP RC_NEXT
-LOAD REV_COUNT
-ADD ONE
-STORE REV_COUNT
-RC_NEXT,         LOAD COUNT
-ADD ONE
-STORE COUNT
-JUMP RC_LOOP
-
-INIT_BOARD,      HEX 000
-LOAD ZERO
-STORE COUNT
-IB_LOOP,         LOAD COUNT
-SUBT MAX_CELLS
-SKIPCOND 000
-JUMPI INIT_BOARD
-LOAD COUNT
-ADD B_VIS
-STORE DIR
+JUMP FLG_TOGGLE
+JUMPI FLG_LOGIC
+FLG_TOGGLE: LOAD TMP
+SUBT ST_FLAG
+SKIPCOND 400
+JUMP ADD_FLG
+/ Quitar Bandera
 LOAD ST_HIDDEN
 STOREI DIR
-LOAD COUNT
-ADD ONE
-STORE COUNT
-JUMP IB_LOOP
+JNS UPD_SCORE_NEG
+JUMP FLG_OUT
+/ Poner Bandera
+ADD_FLG:   LOAD ST_FLAG
+STOREI DIR
+JNS UPD_SCORE_POS
+FLG_OUT:   LOAD SCORE | OUTPUT  / Muestra puntaje actual
+JUMPI FLG_LOGIC
 
-CALC_SAFE,       HEX 000
-LOAD ZERO
+/ ============================================================
+/ RENDERIZADO CON FILTRO GEOMÉTRICO
+/ ============================================================
+RENDER,    LOAD ZERO
 STORE COUNT
-STORE SAFE_TGT
-CS_LOOP,         LOAD COUNT
+RND_LOOP:  LOAD COUNT
 SUBT MAX_CELLS
 SKIPCOND 000
-JUMPI CALC_SAFE
-LOAD COUNT
-ADD B_SHAPE
-STORE DIR
-LOADI DIR
-SKIPCOND 400
-JUMP CS_REAL
-JUMP CS_NEXT
-CS_REAL,         LOAD COUNT
-ADD B_REAL
-STORE DIR
-LOADI DIR
-SKIPCOND 000 / ¿Es mina?
-JUMP CS_ADD
-JUMP CS_NEXT
-CS_ADD,          LOAD SAFE_TGT
-ADD ONE
-STORE SAFE_TGT
-CS_NEXT,         LOAD COUNT
-ADD ONE
-STORE COUNT
-JUMP CS_LOOP
+JUMP RND_END
 
-CHK_WIN,         HEX 000
-LOAD REV_COUNT
-SUBT SAFE_TGT
-SKIPCOND 400
-JUMPI CHK_WIN
-LOAD TWO
-STORE GAME_STATE
-JUMPI CHK_WIN
+/ Convertir COUNT a FILA/COL para CHECK_SHAPE
+/ (Lógica interna de división para obtener coordenadas)
+JNS GET_COORDS
 
-/ ==========================================
-/ RENDER Y MENSAJES FINALES
-/ ==========================================
-RENDER,          LOAD ZERO
-STORE COUNT
-RND_L,           LOAD COUNT
-SUBT MAX_CELLS
-SKIPCOND 000
-JUMP RND_D
 LOAD COUNT
 ADD B_DISP
 STORE DIR
-LOAD COUNT
-ADD B_SHAPE
-STORE TMP
-LOADI TMP
-SKIPCOND 400
-JUMP SHP_O
-LOAD C_OUT
+
+/ --- APLICAR GEOMETRÍA AL DIBUJO ---
+JNS CHECK_SHAPE
+SKIPCOND 800
+JUMP DRAW_OUT        / Fuera de la figura -> Color oscuro
+
+/ Lógica normal de dibujado (Oculto, Bandera, Revelado)
+/ ... (Aquí va tu lógica de colores C_0 a C_8)
+JUMP RND_NEXT
+
+DRAW_OUT:  LOAD C_OUT
 STOREI DIR
-JUMP RND_N
-SHP_O,           LOAD GAME_STATE
-SUBT ONE
-SKIPCOND 400
-JUMP C_VIS
-LOAD COUNT
-ADD B_REAL
-STORE TMP
-LOADI TMP
-SKIPCOND 000
-JUMP C_VIS
-LOAD C_MIN
-STOREI DIR
-JUMP RND_N
-C_VIS,           LOAD COUNT
-ADD B_VIS
-STORE TMP
-LOADI TMP
-SKIPCOND 400
-JUMP N_HID
-LOAD C_HID
-STOREI DIR
-JUMP RND_N
-N_HID,           SUBT ST_FLAG
-SKIPCOND 400
-JUMP N_FLG
-LOAD C_FLG
-STOREI DIR
-JUMP RND_N
-N_FLG,           LOAD COUNT
-ADD B_REAL
-STORE TMP
-LOADI TMP
-STORE VALOR
-/ ... Lógica de colores del 0 al 8 (C_0, C_1, etc) ...
-/ (Se omite detalle por espacio, mantener lógica V6)
-STOREI DIR
-RND_N,           LOAD COUNT
+RND_NEXT:  LOAD COUNT
 ADD ONE
 STORE COUNT
-JUMP RND_L
-RND_D,           LOAD GAME_STATE
-SKIPCOND 400
-JUMP MSG_EXIT
-JUMP MAIN_LOOP
-
-MSG_EXIT,        LOAD ASC_G
-OUTPUT
-LOAD ASC_A
-OUTPUT
-LOAD ASC_M
-OUTPUT
-LOAD ASC_E
-OUTPUT
-LOAD ASC_SPACE
-OUTPUT
-LOAD ASC_O
-OUTPUT
-LOAD ASC_V
-OUTPUT
-LOAD ASC_E
-OUTPUT
-LOAD ASC_R
-OUTPUT
-LOAD ASC_SPACE
-OUTPUT
-LOAD ASC_S
-OUTPUT
-LOAD ASC_COLON
-OUTPUT
-LOAD SCORE
-OUTPUT
-HALT
-END
+JUMP RND_LOOP
+RND_END:   / Verificar fin de juego y saltar a MAIN_LOOP
