@@ -53,15 +53,8 @@ def imprimir_mascara(mascara: Mascara) -> None:
 
 
 def tablero_para_imagen(tablero: Tablero, mascara: Optional[Mascara] = None) -> List[List[int]]:
-    """
-    Convierte el tablero a valores adecuados para visualización.
-
-    Convención visual:
-    - fuera de forma -> 10
-    - mina (-1) -> 9
-    - 0..8 se mantienen
-    """
-    salida: List[List[int]] = []
+    """Convierte el tablero a índices fijos para el mapa de colores."""
+    salida = []
     filas = len(tablero)
     columnas = len(tablero[0]) if filas > 0 else 0
 
@@ -69,16 +62,15 @@ def tablero_para_imagen(tablero: Tablero, mascara: Optional[Mascara] = None) -> 
         nueva_fila = []
         for j in range(columnas):
             if mascara is not None and mascara[i][j] == 0:
-                nueva_fila.append(10)
+                nueva_fila.append(10)  # Índice 10: Fuera de forma
             else:
                 valor = tablero[i][j]
                 if valor == -1:
-                    nueva_fila.append(9)
+                    nueva_fila.append(9)  # Índice 9: Mina
                 else:
-                    nueva_fila.append(valor)
+                    nueva_fila.append(valor)  # Índices 0 al 8: Números normales
         salida.append(nueva_fila)
     return salida
-
 
 def guardar_visualizacion(
         tablero: Tablero,
@@ -86,53 +78,63 @@ def guardar_visualizacion(
         mascara: Optional[Mascara] = None,
         titulo: str = "Vista previa del tablero Buscaminas",
 ) -> Path:
-    """
-    Guarda una imagen del tablero real y opcionalmente de la forma.
-    """
     ruta = Path(ruta_salida)
     matriz = tablero_para_imagen(tablero, mascara=mascara)
 
-    # 0..8, 9=mina, 10=fuera de forma
-    # Paleta de colores sincronizada 100% con MARIE.js
-    # Paleta de colores sincronizada EXACTAMENTE con las instrucciones del PDF
+    # PALETA DE COLORES EXACTA (Sincronizada con MARIE y el PDF)
     cmap = ListedColormap([
-        "#CCCCCC",  # 0: gris claro
-        "#0000FF",  # 1: azul
-        "#00FF00",  # 2: verde
-        "#FF0000",  # 3: rojo
-        "#0000AA",  # 4: azul oscuro
-        "#AA0000",  # 5: rojo oscuro
-        "#00FFFF",  # 6: cian (turquesa)
-        "#AA00FF",  # 7: violeta
-        "#FFFFFF",  # 8: blanco
-        "#000000",  # mina: negro
-        "#222222",  # fuera de forma: gris oscuro
+        "#CCCCCC",  # 0: Gris claro
+        "#0000FF",  # 1: Azul
+        "#00FF00",  # 2: Verde brillante
+        "#FF0000",  # 3: Rojo
+        "#0000AA",  # 4: Azul oscuro
+        "#880000",  # 5: Rojo oscuro
+        "#00FFFF",  # 6: Cian
+        "#AA00FF",  # 7: Violeta
+        "#FFFFFF",  # 8: Blanco
+        "#000000",  # 9: Mina (Negro)
+        "#222222",  # 10: Fuera de forma (Gris muy oscuro)
     ])
 
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(9, 9))
+    # Fijar vmin=0 y vmax=10 garantiza que el índice coincida con el color correcto
     plt.imshow(matriz, cmap=cmap, vmin=0, vmax=10)
 
     filas = len(matriz)
     columnas = len(matriz[0]) if filas > 0 else 0
 
+    # Dibujar los números/minas sobre las celdas
     for i in range(filas):
         for j in range(columnas):
             if mascara is not None and mascara[i][j] == 0:
                 texto = ""
-                color_texto = "white"
             else:
                 valor = tablero[i][j]
                 texto = "*" if valor == -1 else str(valor)
-                color_texto = "white" if valor == -1 else "black"
 
-            plt.text(j, i, texto, ha="center", va="center", fontsize=8, color=color_texto)
+                # Ajustar contraste del texto para que se lea bien sobre fondos oscuros
+                if valor in [-1, 1, 4, 5]:
+                    color_texto = "white"
+                else:
+                    color_texto = "black"
 
-    plt.title(titulo)
+                plt.text(j, i, texto, ha="center", va="center", fontsize=9, color=color_texto, fontweight='bold')
+
+    plt.title(titulo, fontsize=14, pad=20)
+
+    # Configurar los ejes (escala de números) en los 4 LADOS
     plt.xticks(range(columnas))
     plt.yticks(range(filas))
-    plt.grid(True, which="both", color="gray", linewidth=0.5)
+    plt.tick_params(
+        top=True, bottom=True, left=True, right=True,
+        labeltop=True, labelbottom=True, labelleft=True, labelright=True
+    )
+
+    # Dibujar la cuadrícula para separar las celdas
+    plt.grid(True, which="both", color="#555555", linewidth=1)
+
     plt.tight_layout()
-    plt.savefig(ruta, dpi=200)
+    plt.savefig(ruta, dpi=200, bbox_inches="tight")
     plt.close()
 
     return ruta
