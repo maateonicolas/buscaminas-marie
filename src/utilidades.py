@@ -106,7 +106,7 @@ def guardar_visualizacion(
         "#AA00FF",  # 7: violeta
         "#FFFFFF",  # 8: blanco
         "#000000",  # mina: negro
-        "#222222",  # fuera de forma: gris muy oscuro
+        "#222222",  # fuera de forma: gris oscuro
     ])
 
     plt.figure(figsize=(8, 8))
