@@ -1,4 +1,4 @@
-template_mas = r"""/ ==========================================
+/ ==========================================
 / BUSCAMINAS MARIE - LÓGICA V6 (MEMORIA EXACTA)
 / ==========================================
 ORG 000
@@ -471,4 +471,3 @@ SKIPCOND 400
 JUMP END_HALT
 JUMP MAIN_LOOP
 END_HALT,        HALT
-"""
