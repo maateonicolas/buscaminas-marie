@@ -1,10 +1,10 @@
 / ==========================================
-/ BUSCAMINAS MARIE - LÓGICA COMPLETA V3
+/ BUSCAMINAS MARIE - ESTRUCTURA DE MEMORIA ESTRICTA
 / ==========================================
 ORG 000
 JUMP START
 
-/ --- Variables ---
+/ --- Variables (13 espacios) ---
 FILA, DEC 0
 COL, DEC 0
 ACCION, DEC 0
@@ -19,7 +19,7 @@ FLAG_COUNT, DEC 0
 SAFE_TGT, DEC 0
 CURR_REG, DEC 0
 
-/ --- Constantes ---
+/ --- Constantes (13 espacios) ---
 ZERO, DEC 0
 ONE, DEC 1
 TWO, DEC 2
@@ -34,14 +34,14 @@ ST_HIDDEN, DEC 0
 ST_REVEAL, DEC 1
 ST_FLAG, DEC 2
 
-/ --- Direcciones Base Estáticas ---
+/ --- Direcciones Base Estáticas (5 espacios) ---
 B_VIS, HEX 0600
-B_REAL, HEX 0700
-B_SHAPE, HEX 0800
-B_REGIONS, HEX 0900
+B_REAL, HEX 002D     / Dirección matemática de __TABLERO_REAL__
+B_SHAPE, HEX 012D    / Dirección matemática de __SHAPE_PRESET__
+B_REGIONS, HEX 022D  / Dirección matemática de __REGION_MAP__
 B_DISP, HEX 0F00
 
-/ --- Colores ---
+/ --- Colores (13 espacios) ---
 C_HID, HEX 0666
 C_FLG, HEX 0FF0
 C_MIN, HEX 0000
@@ -55,6 +55,18 @@ C_5, HEX 0800
 C_6, HEX 00FF
 C_7, HEX 0A0F
 C_8, HEX 0FFF
+
+/ ==========================================
+/ ZONA DE INYECCIÓN DE MATRICES PYTHON
+/ ==========================================
+/ Al inyectar Python aquí, la memoria será predecible.
+/ NO ALTERAR EL ORDEN DE ESTOS BLOQUES.
+
+__TABLERO_REAL__
+
+__SHAPE_PRESET__
+
+__REGION_MAP__
 
 / ==========================================
 / INICIO DEL PROGRAMA
@@ -77,7 +89,6 @@ INPUT
 STORE ACCION
 JNS CALC_IDX
 
-/ Validar si la celda es jugable
 LOAD INDEX
 ADD B_SHAPE
 STORE DIR
@@ -130,23 +141,19 @@ ADD B_VIS
 STORE DIR
 LOADI DIR
 
-/ Si NO está oculta, ignorar y salir
 SKIPCOND 400
 JUMPI REV_LOGIC
 
-/ Leer tablero real
 LOAD INDEX
 ADD B_REAL
 STORE DIR
 LOADI DIR
 STORE VALOR
 
-/ Si es mina (-1)
 LOAD VALOR
 SKIPCOND 000
 JUMP REV_SAFE
 
-/ Pierde
 LOAD ONE
 STORE GAME_STATE
 JUMPI REV_LOGIC
@@ -155,7 +162,6 @@ REV_SAFE,        LOAD VALOR
 SKIPCOND 400
 JUMP REV_SINGLE
 
-/ Es cero (0) -> Iniciar Expansion
 LOAD INDEX
 ADD B_REGIONS
 STORE DIR
@@ -195,7 +201,6 @@ SUBT CURR_REG
 SKIPCOND 400
 JUMP ER_NEXT
 
-/ Revelar en tablero visible
 LOAD COUNT
 ADD B_VIS
 STORE DIR
@@ -246,7 +251,6 @@ STORE DIR
 LOADI DIR
 STORE TMP
 
-/ Ignorar si ya está revelada
 LOAD TMP
 SUBT ST_REVEAL
 SKIPCOND 400
@@ -258,7 +262,6 @@ SUBT ST_FLAG
 SKIPCOND 400
 JUMP FLG_ADD
 
-/ Es bandera -> Quitar
 LOAD ST_HIDDEN
 STOREI DIR
 LOAD FLAG_COUNT
@@ -285,7 +288,6 @@ SUBT MAX_CELLS
 SKIPCOND 000
 JUMPI CALC_SAFE
 
-/ Validar si pertenece a la forma
 LOAD COUNT
 ADD B_SHAPE
 STORE DIR
@@ -293,7 +295,6 @@ LOADI DIR
 SKIPCOND 400
 JUMP CS_NEXT
 
-/ Validar si es mina
 LOAD COUNT
 ADD B_REAL
 STORE DIR
@@ -359,7 +360,6 @@ LOAD COUNT
 ADD B_DISP
 STORE DIR
 
-/ Revisar Máscara (Shape)
 LOAD COUNT
 ADD B_SHAPE
 STORE TMP
@@ -373,7 +373,6 @@ SUBT ONE
 SKIPCOND 400
 JUMP CHK_VIS
 
-/ Pierde -> Mostrar Minas
 LOAD COUNT
 ADD B_REAL
 STORE TMP
@@ -471,17 +470,3 @@ RND_DONE,        LOAD GAME_STATE
 SKIPCOND 400
 JUMP MAIN_LOOP
 HALT
-
-/ ==========================================
-/ MARCADORES PARA PYTHON (ZONA FIJA)
-/ ==========================================
-ORG 0700
-__TABLERO_REAL__
-
-ORG 0800
-__SHAPE_PRESET__
-
-ORG 0900
-__REGION_MAP__
-
-END
