@@ -1,4 +1,4 @@
-/ ==========================================
+template_mas = r"""/ ==========================================
 / BUSCAMINAS MARIE - LÓGICA V6 (MEMORIA EXACTA)
 / ==========================================
 ORG 000
@@ -41,22 +41,20 @@ B_SHAPE, HEX 012D    / CORRECCIÓN: B_REAL + 256 celdas
 B_REGIONS, HEX 022D  / CORRECCIÓN: B_SHAPE + 256 celdas
 B_DISP, HEX 0F00
 
-/ =========================
-/ COLORES DEL DISPLAY
-/ =========================
-COLOR_OCULTO,   HEX 0666
-COLOR_BANDERA,  HEX 0FF0
-COLOR_MINA,     HEX 0000
-COLOR_0,        HEX 0CCC
-COLOR_1,        HEX 000F
-COLOR_2,        HEX 00F0
-COLOR_3,        HEX 0F00
-COLOR_4,        HEX 000A
-COLOR_5,        HEX 0800
-COLOR_6,        HEX 00FF
-COLOR_7,        HEX 0A0F
-COLOR_8,        HEX 0FFF
-COLOR_FORA,     HEX 0222
+/ --- Colores Sincronizados con Python (13 espacios) ---
+C_HID, HEX 0666
+C_FLG, HEX 0FF0
+C_MIN, HEX 0000
+C_OUT, HEX 0222
+C_0, HEX 0CCC
+C_1, HEX 000F
+C_2, HEX 00F0
+C_3, HEX 0F00
+C_4, HEX 000A
+C_5, HEX 0800
+C_6, HEX 00FF
+C_7, HEX 0A0F
+C_8, HEX 0FFF
 
 / ==========================================
 / ZONA DE INYECCIÓN DE MATRICES PYTHON
@@ -473,3 +471,4 @@ SKIPCOND 400
 JUMP END_HALT
 JUMP MAIN_LOOP
 END_HALT,        HALT
+"""
