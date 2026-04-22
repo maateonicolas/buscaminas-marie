@@ -46,12 +46,6 @@ El programa en MARIE se encarga de:
 - tablero de **16×16**
 - generación automática de minas y vecinos
 - exportación automática a **MARIE.js**
-- soporte para **formas personalizadas** del tablero mediante máscara:
-    - tablero completo
-    - rombo
-    - cruz
-    - marco
-    - personalizada
 - salida visual del tablero en imagen
 - notebook autosuficiente para presentación en **Google Colab**
 - estructura organizada para desarrollo local en **PyCharm** o cualquier entorno Python
@@ -242,13 +236,7 @@ Contiene funciones para:
 - generar la visualización en imagen
 
 ### `marie/plantillas/buscaminas_template_mod.mas`
-Plantilla base del programa en MARIE, documentada y preparada para recibir:
-
-- `TABLERO_REAL`
-- `SHAPE_PRESET`
-
-### `notebooks/buscaminas_colab_actualizado.ipynb`
-Notebook autosuficiente para ejecutar todo el flujo de generación y exportación.
+- marie/plantillas/buscaminas_template_mod.mas: Plantilla base con Lógica V6. Implementa un direccionamiento de memoria exacto (post-cabecera) para las matrices de juego, asegurando que B_REAL, B_SHAPE y B_REGIONS coincidan exactamente con la inyección de datos desde Python.
 
 ## Resultados esperados
 
