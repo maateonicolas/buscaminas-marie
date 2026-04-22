@@ -94,18 +94,19 @@ def guardar_visualizacion(
 
     # 0..8, 9=mina, 10=fuera de forma
     # Paleta de colores sincronizada 100% con MARIE.js
+    # Paleta de colores sincronizada EXACTAMENTE con las instrucciones del PDF
     cmap = ListedColormap([
-        "#cccccc",  # 0: gris claro
-        "#0000ff",  # 1: azul
-        "#00ff00",  # 2: verde
-        "#ff0000",  # 3: rojo
-        "#0000aa",  # 4: azul oscuro
-        "#880000",  # 5: rojo oscuro
-        "#00ffff",  # 6: cian (turquesa)
-        "#aa00ff",  # 7: violeta
-        "#ffffff",  # 8: blanco
+        "#CCCCCC",  # 0: gris claro
+        "#0000FF",  # 1: azul
+        "#00FF00",  # 2: verde
+        "#FF0000",  # 3: rojo
+        "#0000AA",  # 4: azul oscuro
+        "#AA0000",  # 5: rojo oscuro
+        "#00FFFF",  # 6: cian (turquesa)
+        "#AA00FF",  # 7: violeta
+        "#FFFFFF",  # 8: blanco
         "#000000",  # mina: negro
-        "#222222",  # fuera de forma: gris oscuro
+        "#222222",  # fuera de forma: gris muy oscuro
     ])
 
     plt.figure(figsize=(8, 8))
