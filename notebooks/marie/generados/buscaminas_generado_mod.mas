@@ -1,0 +1,1240 @@
+/ ==========================================
+/ BUSCAMINAS MARIE - LÓGICA V6 (MEMORIA EXACTA)
+/ ==========================================
+ORG 000
+JUMP START
+
+/ --- Variables (13 espacios) ---
+FILA, DEC 0
+COL, DEC 0
+ACCION, DEC 0
+INDEX, DEC 0
+VALOR, DEC 0
+DIR, DEC 0
+COUNT, DEC 0
+TMP, DEC 0
+GAME_STATE, DEC 0
+REV_COUNT, DEC 0
+FLAG_COUNT, DEC 0
+SAFE_TGT, DEC 0
+CURR_REG, DEC 0
+
+/ --- Constantes (13 espacios) ---
+ZERO, DEC 0
+ONE, DEC 1
+TWO, DEC 2
+THREE, DEC 3
+FOUR, DEC 4
+FIVE, DEC 5
+SIX, DEC 6
+SEVEN, DEC 7
+SIXTEEN, DEC 16
+MAX_CELLS, DEC 256
+ST_HIDDEN, DEC 0
+ST_REVEAL, DEC 1
+ST_FLAG, DEC 2
+
+/ --- Direcciones Base Estáticas (5 espacios) ---
+B_VIS, HEX 0600
+B_REAL, HEX 002D     / CORRECCIÓN: 45 en Hex (Inicio exacto post-cabecera)
+B_SHAPE, HEX 012D    / CORRECCIÓN: B_REAL + 256 celdas
+B_REGIONS, HEX 022D  / CORRECCIÓN: B_SHAPE + 256 celdas
+B_DISP, HEX 0F00
+
+/ =========================
+/ COLORES DEL DISPLAY
+/ =========================
+COLOR_OCULTO,   HEX 0666
+COLOR_BANDERA,  HEX 0FF0
+COLOR_MINA,     HEX 0000
+COLOR_0,        HEX 0CCC
+COLOR_1,        HEX 000F
+COLOR_2,        HEX 00F0
+COLOR_3,        HEX 0F00
+COLOR_4,        HEX 000A
+COLOR_5,        HEX 0800
+COLOR_6,        HEX 00FF
+COLOR_7,        HEX 0A0F
+COLOR_8,        HEX 0FFF
+COLOR_FORA,     HEX 0222
+
+/ ==========================================
+/ ZONA DE INYECCIÓN DE MATRICES PYTHON
+/ ==========================================
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC -1
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC -1
+    DEC 2
+    DEC -1
+    DEC 2
+    DEC 2
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 3
+    DEC 1
+    DEC 2
+    DEC -1
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 2
+    DEC -1
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 1
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC -1
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 3
+    DEC -1
+    DEC 2
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 2
+    DEC 1
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC -1
+    DEC -1
+    DEC 2
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 1
+    DEC 2
+    DEC -1
+    DEC 1
+    DEC 1
+    DEC 2
+    DEC 3
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 2
+    DEC 3
+    DEC 3
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC -1
+    DEC 2
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC -1
+    DEC 2
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC -1
+    DEC -1
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 2
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 2
+    DEC 3
+    DEC -1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 2
+    DEC 2
+    DEC 2
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 4
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 0
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 1
+    DEC 0
+    DEC 0
+    DEC 0
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+    DEC 3
+
+/ ==========================================
+/ INICIO DEL PROGRAMA
+/ ==========================================
+START,           LOAD ZERO
+STORE GAME_STATE
+STORE REV_COUNT
+JNS INIT_BOARD
+JNS CALC_SAFE
+JUMP RENDER
+
+/ ==========================================
+/ BUCLE PRINCIPAL
+/ ==========================================
+MAIN_LOOP,       INPUT
+STORE FILA
+INPUT
+STORE COL
+INPUT
+STORE ACCION
+JNS CALC_IDX
+
+LOAD INDEX
+ADD B_SHAPE
+STORE DIR
+LOADI DIR
+SKIPCOND 400
+JUMP VAL_SHAPE_OK
+JUMP MAIN_LOOP
+
+VAL_SHAPE_OK,    LOAD ACCION
+SUBT ONE
+SKIPCOND 400
+JUMP DO_FLAG
+JUMP DO_REVEAL
+
+DO_REVEAL,       JNS REV_LOGIC
+JNS CHK_WIN
+JUMP RENDER
+
+DO_FLAG,         JNS FLG_LOGIC
+JUMP RENDER
+
+/ ==========================================
+/ RUTINA: CALCULAR INDICE LINEAL
+/ ==========================================
+CALC_IDX,        HEX 000
+LOAD ZERO
+STORE INDEX
+LOAD FILA
+STORE TMP
+CI_LOOP,         LOAD TMP
+SKIPCOND 400
+JUMP CI_DO_ADD
+JUMP CI_FINISH
+CI_DO_ADD,       LOAD INDEX
+ADD SIXTEEN
+STORE INDEX
+LOAD TMP
+SUBT ONE
+STORE TMP
+JUMP CI_LOOP
+CI_FINISH,       LOAD INDEX
+ADD COL
+STORE INDEX
+JUMPI CALC_IDX
+
+/ ==========================================
+/ RUTINA: LOGICA DE REVELAR
+/ ==========================================
+REV_LOGIC,       HEX 000
+LOAD INDEX
+ADD B_VIS
+STORE DIR
+LOADI DIR
+
+SKIPCOND 400
+JUMPI REV_LOGIC
+
+LOAD INDEX
+ADD B_REAL
+STORE DIR
+LOADI DIR
+STORE VALOR
+
+LOAD VALOR
+SKIPCOND 000
+JUMP REV_SAFE
+
+LOAD ONE
+STORE GAME_STATE
+JUMPI REV_LOGIC
+
+REV_SAFE,        LOAD VALOR
+SKIPCOND 400
+JUMP REV_SINGLE
+
+LOAD INDEX
+ADD B_REGIONS
+STORE DIR
+LOADI DIR
+STORE CURR_REG
+JNS EXP_REGION
+JNS RECOUNT
+JUMPI REV_LOGIC
+
+REV_SINGLE,      LOAD ST_REVEAL
+LOAD INDEX
+ADD B_VIS
+STORE DIR
+LOAD ST_REVEAL
+STOREI DIR
+LOAD REV_COUNT
+ADD ONE
+STORE REV_COUNT
+JUMPI REV_LOGIC
+
+/ ==========================================
+/ RUTINA: EXPANDIR REGION (Flood-fill)
+/ ==========================================
+EXP_REGION,      HEX 000
+LOAD ZERO
+STORE COUNT
+ER_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI EXP_REGION
+
+LOAD COUNT
+ADD B_REGIONS
+STORE DIR
+LOADI DIR
+SUBT CURR_REG
+SKIPCOND 400
+JUMP ER_NEXT
+
+LOAD COUNT
+ADD B_VIS
+STORE DIR
+LOAD ST_REVEAL
+STOREI DIR
+
+ER_NEXT,         LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP ER_LOOP
+
+/ ==========================================
+/ RUTINA: RECONTAR REVELADAS
+/ ==========================================
+RECOUNT,         HEX 000
+LOAD ZERO
+STORE COUNT
+STORE REV_COUNT
+RC_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI RECOUNT
+
+LOAD COUNT
+ADD B_VIS
+STORE DIR
+LOADI DIR
+SUBT ST_REVEAL
+SKIPCOND 400
+JUMP RC_NEXT
+
+LOAD REV_COUNT
+ADD ONE
+STORE REV_COUNT
+
+RC_NEXT,         LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP RC_LOOP
+
+/ ==========================================
+/ RUTINA: LOGICA DE BANDERAS
+/ ==========================================
+FLG_LOGIC,       HEX 000
+LOAD INDEX
+ADD B_VIS
+STORE DIR
+LOADI DIR
+STORE TMP
+
+LOAD TMP
+SUBT ST_REVEAL
+SKIPCOND 400
+JUMP FLG_CONT
+JUMPI FLG_LOGIC
+
+FLG_CONT,        LOAD TMP
+SUBT ST_FLAG
+SKIPCOND 400
+JUMP FLG_ADD
+
+LOAD ST_HIDDEN
+STOREI DIR
+LOAD FLAG_COUNT
+SUBT ONE
+STORE FLAG_COUNT
+JUMPI FLG_LOGIC
+
+FLG_ADD,         LOAD ST_FLAG
+STOREI DIR
+LOAD FLAG_COUNT
+ADD ONE
+STORE FLAG_COUNT
+JUMPI FLG_LOGIC
+
+/ ==========================================
+/ RUTINA: CALCULAR CELDAS SEGURAS (Victoria)
+/ ==========================================
+CALC_SAFE,       HEX 000
+LOAD ZERO
+STORE COUNT
+STORE SAFE_TGT
+CS_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI CALC_SAFE
+
+LOAD COUNT
+ADD B_SHAPE
+STORE DIR
+LOADI DIR
+SKIPCOND 400
+JUMP CS_CHECK_REAL
+JUMP CS_NEXT
+
+CS_CHECK_REAL,   LOAD COUNT
+ADD B_REAL
+STORE DIR
+LOADI DIR
+SKIPCOND 000
+JUMP CS_ADD
+JUMP CS_NEXT
+
+CS_ADD,          LOAD SAFE_TGT
+ADD ONE
+STORE SAFE_TGT
+
+CS_NEXT,         LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP CS_LOOP
+
+/ ==========================================
+/ RUTINA: INICIALIZAR TABLERO VISIBLE
+/ ==========================================
+INIT_BOARD,      HEX 000
+LOAD ZERO
+STORE COUNT
+IB_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI INIT_BOARD
+
+LOAD COUNT
+ADD B_VIS
+STORE DIR
+LOAD ST_HIDDEN
+STOREI DIR
+
+LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP IB_LOOP
+
+/ ==========================================
+/ RUTINA: VERIFICAR VICTORIA
+/ ==========================================
+CHK_WIN,         HEX 000
+LOAD REV_COUNT
+SUBT SAFE_TGT
+SKIPCOND 400
+JUMPI CHK_WIN
+LOAD TWO
+STORE GAME_STATE
+JUMPI CHK_WIN
+
+/ ==========================================
+/ RUTINA: RENDER (DISPLAY)
+/ ==========================================
+RENDER,          LOAD ZERO
+STORE COUNT
+RND_LOOP,        LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMP RND_DONE
+
+LOAD COUNT
+ADD B_DISP
+STORE DIR
+
+LOAD COUNT
+ADD B_SHAPE
+STORE TMP
+LOADI TMP
+SKIPCOND 400
+JUMP SHP_OK
+JUMP DRW_OUT
+
+SHP_OK,          LOAD GAME_STATE
+SUBT ONE
+SKIPCOND 400
+JUMP CHK_VIS
+
+LOAD COUNT
+ADD B_REAL
+STORE TMP
+LOADI TMP
+SKIPCOND 000
+JUMP CHK_VIS
+JUMP DRW_MIN
+
+CHK_VIS,         LOAD COUNT
+ADD B_VIS
+STORE TMP
+LOADI TMP
+
+SKIPCOND 400
+JUMP NOT_HID
+JUMP DRW_HID
+
+NOT_HID,         SUBT ST_FLAG
+SKIPCOND 400
+JUMP NOT_FLG
+JUMP DRW_FLG
+
+NOT_FLG,         LOAD COUNT
+ADD B_REAL
+STORE TMP
+LOADI TMP
+STORE VALOR
+
+LOAD VALOR
+SKIPCOND 400
+JUMP CHK_1
+LOAD C_0
+JUMP DRW
+CHK_1,           LOAD VALOR
+SUBT ONE
+SKIPCOND 400
+JUMP CHK_2
+LOAD C_1
+JUMP DRW
+CHK_2,           LOAD VALOR
+SUBT TWO
+SKIPCOND 400
+JUMP CHK_3
+LOAD C_2
+JUMP DRW
+CHK_3,           LOAD VALOR
+SUBT THREE
+SKIPCOND 400
+JUMP CHK_4
+LOAD C_3
+JUMP DRW
+CHK_4,           LOAD VALOR
+SUBT FOUR
+SKIPCOND 400
+JUMP CHK_5
+LOAD C_4
+JUMP DRW
+CHK_5,           LOAD VALOR
+SUBT FIVE
+SKIPCOND 400
+JUMP CHK_6
+LOAD C_5
+JUMP DRW
+CHK_6,           LOAD VALOR
+SUBT SIX
+SKIPCOND 400
+JUMP CHK_7
+LOAD C_6
+JUMP DRW
+CHK_7,           LOAD VALOR
+SUBT SEVEN
+SKIPCOND 400
+JUMP CHK_8
+LOAD C_7
+JUMP DRW
+CHK_8,           LOAD C_8
+JUMP DRW
+
+DRW_OUT,         LOAD C_OUT
+JUMP DRW
+DRW_MIN,         LOAD C_MIN
+JUMP DRW
+DRW_HID,         LOAD C_HID
+JUMP DRW
+DRW_FLG,         LOAD C_FLG
+JUMP DRW
+
+DRW,             STOREI DIR
+LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP RND_LOOP
+
+RND_DONE,        LOAD GAME_STATE
+SKIPCOND 400
+JUMP END_HALT
+JUMP MAIN_LOOP
+END_HALT,        HALT
