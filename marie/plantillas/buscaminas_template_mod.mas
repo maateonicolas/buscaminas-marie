@@ -1,76 +1,80 @@
-/ ================================================================
-/ BUSCAMINAS PARA MARIE.JS - PROYECTO FINAL
-/ ================================================================
+/ ==========================================
+/ BUSCAMINAS MARIE - LÓGICA COMPLETA
+/ ==========================================
 ORG 000
 JUMP START
 
-/ --- Variables de Juego ---
-FILA,            DEC 0
-COL,             DEC 0
-ACCION,          DEC 0
-INDEX,           DEC 0
-PTR,             DEC 0
-VALOR,           DEC 0
-DIR,             DEC 0
-COUNT,           DEC 0
-TEMP,            DEC 0
-DISP_PTR,        DEC 0
-GAME_STATE,      DEC 0  / 0:Jugando, 1:Pierde, 2:Gana
-REVEALED_COUNT,  DEC 0
-FLAG_COUNT,      DEC 0
-SAFE_TARGET,     DEC 0
-CURRENT_REGION,  DEC 0
+/ --- Variables ---
+FILA, DEC 0
+COL, DEC 0
+ACCION, DEC 0
+INDEX, DEC 0
+VALOR, DEC 0
+DIR, DEC 0
+COUNT, DEC 0
+TMP, DEC 0
+GAME_STATE, DEC 0
+REV_COUNT, DEC 0
+FLAG_COUNT, DEC 0
+SAFE_TGT, DEC 0
+CURR_REG, DEC 0
 
 / --- Constantes ---
-ZERO,            DEC 0
-ONE,             DEC 1
-TWO,             DEC 2
-TEN,             DEC 10
-SIXTEEN,         DEC 16
-TWO_FIFTY_SIX,   DEC 256
-ASCII_0,         DEC 48
-VISIBLE_HIDDEN,  DEC 0
-VISIBLE_REVEAL,  DEC 1
-VISIBLE_FLAG,    DEC 2
+ZERO, DEC 0
+ONE, DEC 1
+TWO, DEC 2
+SIXTEEN, DEC 16
+MAX_CELLS, DEC 256
+ST_HIDDEN, DEC 0
+ST_REVEAL, DEC 1
+ST_FLAG, DEC 2
 
-/ --- Bases de Memoria ---
-BASE_REAL,       ADR TABLERO_REAL
-BASE_SHAPE,      ADR SHAPE_PRESET
-BASE_REGIONS,    ADR REGION_MAP
-BASE_VISIBLE,    HEX 0600
-DISP_START,      HEX 0F00
+/ --- Bases ---
+B_REAL, ADR TABLERO_REAL
+B_SHAPE, ADR SHAPE_PRESET
+B_REGIONS, ADR REGION_MAP
+B_VIS, HEX 0600
+B_DISP, HEX 0F00
 
 / --- Colores ---
-COLOR_OCULTO,    HEX 0666
-COLOR_BANDERA,   HEX 0FF0
-COLOR_MINA,      HEX 0000
-COLOR_0,         HEX 0CCC
-COLOR_FORA,      HEX 0222
+C_HID, HEX 0666
+C_FLG, HEX 0FF0
+C_MIN, HEX 0000
+C_OUT, HEX 0222
+C_0, HEX 0CCC
+C_1, HEX 000F
+C_2, HEX 00F0
+C_3, HEX 0F00
+C_4, HEX 000A
+C_5, HEX 0800
+C_6, HEX 00FF
+C_7, HEX 0A0F
+C_8, HEX 0FFF
 
-/ ================================================================
-/ START
-/ ================================================================
+/ ==========================================
+/ INICIO DEL PROGRAMA
+/ ==========================================
 START,           LOAD ZERO
 STORE GAME_STATE
-STORE REVEALED_COUNT
+STORE REV_COUNT
 JNS INIT_BOARD
-JNS CALC_SAFE_TARGET
+JNS CALC_SAFE
 JUMP RENDER
 
-/ ================================================================
+/ ==========================================
 / BUCLE PRINCIPAL
-/ ================================================================
+/ ==========================================
 MAIN_LOOP,       INPUT
 STORE FILA
 INPUT
 STORE COL
 INPUT
 STORE ACCION
-JNS CALC_INDEX
+JNS CALC_IDX
 
-/ Validar si la celda es jugable (Shape Mask)
+/ Validar SHAPE
 LOAD INDEX
-ADD BASE_SHAPE
+ADD B_SHAPE
 STORE DIR
 LOADI DIR
 SKIPCOND 400
@@ -82,128 +86,310 @@ SKIPCOND 400
 JUMP DO_FLAG
 JUMP DO_REVEAL
 
-DO_REVEAL,       JNS REVELAR_LOGIC
-JUMP RENDER
-DO_FLAG,         JNS BANDERA_LOGIC
+DO_REVEAL,       JNS REV_LOGIC
+JNS CHK_WIN
 JUMP RENDER
 
-/ ================================================================
-/ LÓGICA DE REVELAR Y EXPANSIÓN
-/ ================================================================
-REVELAR_LOGIC,   HEX 000
+DO_FLAG,         JNS FLG_LOGIC
+JUMP RENDER
+
+/ ==========================================
+/ RUTINA: CALCULAR INDICE
+/ ==========================================
+CALC_IDX,        HEX 000
+LOAD ZERO
+STORE INDEX
+LOAD FILA
+STORE TMP
+CI_LOOP,         LOAD TMP
+SKIPCOND 400
+JUMP CI_ADDCOL
 LOAD INDEX
-ADD BASE_VISIBLE
+ADD SIXTEEN
+STORE INDEX
+LOAD TMP
+SUBT ONE
+STORE TMP
+JUMP CI_LOOP
+CI_ADDCOL,       LOAD INDEX
+ADD COL
+STORE INDEX
+JUMPI CALC_IDX
+
+/ ==========================================
+/ RUTINA: LOGICA DE REVELAR
+/ ==========================================
+REV_LOGIC,       HEX 000
+LOAD INDEX
+ADD B_VIS
 STORE DIR
 LOADI DIR
-SKIPCOND 400 / Si no es 0 (Hidden), salir
-JUMPI REVELAR_LOGIC
 
-/ Leer valor real
+/ Si no esta oculta, salir
+SKIPCOND 400
+JUMPI REV_LOGIC
+
+/ Leer tablero real
 LOAD INDEX
-ADD BASE_REAL
+ADD B_REAL
 STORE DIR
 LOADI DIR
 STORE VALOR
 
-/ ¿Es mina?
+/ Mina?
 LOAD VALOR
 SKIPCOND 000
-JUMP REVEAL_SAFE
+JUMP REV_SAFE
+
+/ Es Mina
 LOAD ONE
 STORE GAME_STATE
-JUMPI REVELAR_LOGIC
+JUMPI REV_LOGIC
 
-REVEAL_SAFE,     / Si el valor es 0, activar expansión por región
-LOAD VALOR
+REV_SAFE,        LOAD VALOR
 SKIPCOND 400
-JUMP JUST_ONE
+JUMP REV_SINGLE
 
-/ Lógica de Expansión por Región
+/ Es cero -> Expansion
 LOAD INDEX
-ADD BASE_REGIONS
+ADD B_REGIONS
 STORE DIR
 LOADI DIR
-STORE CURRENT_REGION
-JNS EXPAND_REGION
-JNS RECOUNT_SAFE / Recalcular cuántos se revelaron
-JUMPI REVELAR_LOGIC
+STORE CURR_REG
+JNS EXP_REGION
+JNS RECOUNT
+JUMPI REV_LOGIC
 
-JUST_ONE,        LOAD VISIBLE_REVEAL
+REV_SINGLE,      LOAD ST_REVEAL
 LOAD INDEX
-ADD BASE_VISIBLE
+ADD B_VIS
 STORE DIR
-LOAD VISIBLE_REVEAL
+LOAD ST_REVEAL
 STOREI DIR
-LOAD REVEALED_COUNT
+LOAD REV_COUNT
 ADD ONE
-STORE REVEALED_COUNT
-JUMPI REVELAR_LOGIC
+STORE REV_COUNT
+JUMPI REV_LOGIC
 
-/ ================================================================
-/ RUTINA: EXPAND_REGION (Flood-fill precalculado)
-/ ================================================================
-EXPAND_REGION,   HEX 000
+/ ==========================================
+/ RUTINA: EXPANDIR REGION
+/ ==========================================
+EXP_REGION,      HEX 000
 LOAD ZERO
 STORE COUNT
 ER_LOOP,         LOAD COUNT
-ADD BASE_REGIONS
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI EXP_REGION
+
+LOAD COUNT
+ADD B_REGIONS
 STORE DIR
 LOADI DIR
-SUBT CURRENT_REGION
+SUBT CURR_REG
 SKIPCOND 400
 JUMP ER_NEXT
 
-/ Coincide región: revelar en tablero visible
+/ Revelar en tablero visible
 LOAD COUNT
-ADD BASE_VISIBLE
+ADD B_VIS
 STORE DIR
-LOAD VISIBLE_REVEAL
+LOAD ST_REVEAL
 STOREI DIR
+
 ER_NEXT,         LOAD COUNT
 ADD ONE
 STORE COUNT
-SUBT TWO_FIFTY_SIX
-SKIPCOND 400
 JUMP ER_LOOP
-JUMPI EXPAND_REGION
 
-/ ================================================================
-/ SUBRUTINAS DE APOYO (REVISADAS)
-/ ================================================================
+/ ==========================================
+/ RUTINA: RECONTAR REVELADAS
+/ ==========================================
+RECOUNT,         HEX 000
+LOAD ZERO
+STORE COUNT
+STORE REV_COUNT
+RC_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI RECOUNT
+
+LOAD COUNT
+ADD B_VIS
+STORE DIR
+LOADI DIR
+SUBT ST_REVEAL
+SKIPCOND 400
+JUMP RC_NEXT
+
+LOAD REV_COUNT
+ADD ONE
+STORE REV_COUNT
+
+RC_NEXT,         LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP RC_LOOP
+
+/ ==========================================
+/ RUTINA: LOGICA DE BANDERAS
+/ ==========================================
+FLG_LOGIC,       HEX 000
+LOAD INDEX
+ADD B_VIS
+STORE DIR
+LOADI DIR
+STORE TMP
+
+LOAD TMP
+SUBT ST_REVEAL
+SKIPCOND 400
+JUMPI FLG_LOGIC
+
+LOAD TMP
+SUBT ST_FLAG
+SKIPCOND 400
+JUMP FLG_REMOVE
+
+LOAD ST_FLAG
+STOREI DIR
+LOAD FLAG_COUNT
+ADD ONE
+STORE FLAG_COUNT
+JUMPI FLG_LOGIC
+
+FLG_REMOVE,      LOAD ST_HIDDEN
+STOREI DIR
+LOAD FLAG_COUNT
+SUBT ONE
+STORE FLAG_COUNT
+JUMPI FLG_LOGIC
+
+/ ==========================================
+/ RUTINA: VICTORIA
+/ ==========================================
+CALC_SAFE,       HEX 000
+LOAD ZERO
+STORE COUNT
+STORE SAFE_TGT
+CS_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI CALC_SAFE
+
+LOAD COUNT
+ADD B_SHAPE
+STORE DIR
+LOADI DIR
+SKIPCOND 400
+JUMP CS_NEXT
+
+LOAD COUNT
+ADD B_REAL
+STORE DIR
+LOADI DIR
+SKIPCOND 000
+JUMP CS_ADD
+JUMP CS_NEXT
+
+CS_ADD,          LOAD SAFE_TGT
+ADD ONE
+STORE SAFE_TGT
+
+CS_NEXT,         LOAD COUNT
+ADD ONE
+STORE COUNT
+JUMP CS_LOOP
+
+/ ==========================================
+/ RUTINA: INICIALIZAR VISIBLE
+/ ==========================================
 INIT_BOARD,      HEX 000
 LOAD ZERO
 STORE COUNT
-IB_LOOP,         LOAD VISIBLE_HIDDEN
+IB_LOOP,         LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMPI INIT_BOARD
+
 LOAD COUNT
-ADD BASE_VISIBLE
+ADD B_VIS
 STORE DIR
-LOAD VISIBLE_HIDDEN
+LOAD ST_HIDDEN
 STOREI DIR
+
 LOAD COUNT
 ADD ONE
 STORE COUNT
-SUBT TWO_FIFTY_SIX
-SKIPCOND 400
 JUMP IB_LOOP
-JUMPI INIT_BOARD
 
-CALC_INDEX,      HEX 000
-LOAD FILA
-ADD FILA / *2
-ADD FILA / *3... (Simp: FILA * 16)
-/ ... (Aquí Python insertará la lógica de multiplicación)
-STORE INDEX
-LOAD INDEX
-ADD COL
-STORE INDEX
-JUMPI CALC_INDEX
+/ ==========================================
+/ RUTINA: CHECK WIN
+/ ==========================================
+CHK_WIN,         HEX 000
+LOAD REV_COUNT
+SUBT SAFE_TGT
+SKIPCOND 400
+JUMPI CHK_WIN
+LOAD TWO
+STORE GAME_STATE
+JUMPI CHK_WIN
 
-/ --- Marcadores para Python ---
-TABLERO_REAL,    DEC 0
-__TABLERO_REAL__
+/ ==========================================
+/ RUTINA: RENDER
+/ ==========================================
+RENDER,          LOAD ZERO
+STORE COUNT
+RND_LOOP,        LOAD COUNT
+SUBT MAX_CELLS
+SKIPCOND 000
+JUMP RND_DONE
 
-SHAPE_PRESET,    DEC 0
-__SHAPE_PRESET__
+LOAD COUNT
+ADD B_DISP
+STORE DIR
 
-REGION_MAP,      DEC 0
-__REGION_MAP__
+LOAD COUNT
+ADD B_SHAPE
+STORE TMP
+LOADI TMP
+SKIPCOND 400
+JUMP DRW_OUT
+
+LOAD GAME_STATE
+SUBT ONE
+SKIPCOND 400
+JUMP CHK_VIS
+
+LOAD COUNT
+ADD B_REAL
+STORE TMP
+LOADI TMP
+SKIPCOND 000
+JUMP CHK_VIS
+JUMP DRW_MIN
+
+CHK_VIS,         LOAD COUNT
+ADD B_VIS
+STORE TMP
+LOADI TMP
+
+SKIPCOND 400
+JUMP DRW_HID
+
+SUBT ST_FLAG
+SKIPCOND 400
+JUMP DRW_FLG
+
+LOAD COUNT
+ADD B_REAL
+STORE TMP
+LOADI TMP
+STORE VALOR
+
+LOAD VALOR
+SKIPCOND 400
+JUMP CHK_1
+LOAD C_0
+JUMP DRW
+CHK_1,           LOAD VAL
