@@ -1,58 +1,10 @@
 / ================================================================
-/ BUSCAMINAS PARA MARIE.JS - PLANTILLA COMENTADA Y EXTENSIBLE
+/ BUSCAMINAS PARA MARIE.JS - PROYECTO FINAL
 / ================================================================
-/
-/ OBJETIVO DE ESTA PLANTILLA
-/ --------------------------
-/ 1) Mantener la lógica principal del juego en MARIE.
-/ 2) Permitir que Python/Notebook inserte automáticamente el TABLERO_REAL.
-/ 3) Permitir cambiar la FORMA DEL TABLERO sin reescribir la lógica.
-/
-/ IDEA CLAVE PARA LAS FORMAS
-/ --------------------------
-/ MARIE trabaja naturalmente con un tablero base de 16x16 = 256 celdas.
-/ Para crear "formas" diferentes (rombo, cruz, huecos, letras, etc.)
-/ NO se cambia la lógica principal del juego. En lugar de eso se usa
-/ una máscara de forma llamada SHAPE_MASK:
-/
-/   SHAPE_MASK[i] = 1  -> la celda i existe y se puede jugar
-/   SHAPE_MASK[i] = 0  -> la celda i NO existe en la forma elegida
-/
-/ Así, el juego sigue operando sobre 16x16, pero solo considera jugables las
-/ celdas activas por la máscara.
-/
-/ CÓMO PRESENTAR DIFERENTES FORMAS
-/ --------------------------------
-/ Opción recomendada en la presentación:
-/ - En el notebook eliges el tipo de forma.
-/ - El notebook genera TABLERO_REAL y también la máscara SHAPE_PRESET.
-/ - Este .mas copia esa máscara a SHAPE_MASK en tiempo de inicio.
-/
-/ Si quieres una forma completa normal, la máscara debe tener 256 unos.
-/ Si quieres una forma especial, la máscara tendrá 1 donde existe casilla y 0
-/ donde no existe.
-/
-/ NOTA IMPORTANTE SOBRE EL DISPLAY DE MARIE
-/ ----------------------------------------
-/ El display 16x16 sirve para colores, no para dibujar texto dentro de cada celda.
-/ Por eso:
-/ - la casilla se pinta por color;
-/ - el valor revelado se manda por OUTPUT;
-/ - los mensajes START / WIN / LOSE / FLAGS también salen por OUTPUT.
-/
-/ MARCADORES QUE EL NOTEBOOK DEBE REEMPLAZAR
-/ ------------------------------------------
-/ __TABLERO_REAL__      -> bloque DEC con 256 valores del tablero real
-/ __SHAPE_PRESET__      -> bloque DEC con 256 valores 0/1 para la forma elegida
-/
-/ ================================================================
-
 ORG 000
 JUMP START
 
-/ ================================================================
-/ VARIABLES Y CONSTANTES GENERALES
-/ ================================================================
+/ --- Variables de Juego ---
 FILA,            DEC 0
 COL,             DEC 0
 ACCION,          DEC 0
@@ -62,1053 +14,196 @@ VALOR,           DEC 0
 DIR,             DEC 0
 COUNT,           DEC 0
 TEMP,            DEC 0
-TEMP2,           DEC 0
 DISP_PTR,        DEC 0
+GAME_STATE,      DEC 0  / 0:Jugando, 1:Pierde, 2:Gana
+REVEALED_COUNT,  DEC 0
+FLAG_COUNT,      DEC 0
+SAFE_TARGET,     DEC 0
+CURRENT_REGION,  DEC 0
 
+/ --- Constantes ---
 ZERO,            DEC 0
 ONE,             DEC 1
 TWO,             DEC 2
-THREE,           DEC 3
-FOUR,            DEC 4
-FIVE,            DEC 5
-SIX,             DEC 6
-SEVEN,           DEC 7
-EIGHT,           DEC 8
-NINE,            DEC 9
 TEN,             DEC 10
-ELEVEN,          DEC 11
-TWELVE,          DEC 12
-THIRTEEN,        DEC 13
-FOURTEEN,        DEC 14
-FIFTEEN,         DEC 15
 SIXTEEN,         DEC 16
-NEG_ONE,         DEC -1
 TWO_FIFTY_SIX,   DEC 256
-
-/ ================================================================
-/ ESTADOS DEL TABLERO VISIBLE
-/ ================================================================
-/ 0 = oculta
-/ 1 = revelada
-/ 2 = bandera
+ASCII_0,         DEC 48
 VISIBLE_HIDDEN,  DEC 0
 VISIBLE_REVEAL,  DEC 1
 VISIBLE_FLAG,    DEC 2
 
-/ ================================================================
-/ ESTADO DEL JUEGO
-/ ================================================================
-/ GAME_STATE:
-/ 0 = jugando
-/ 1 = derrota
-/ 2 = victoria
-GAME_STATE,      DEC 0
-
-/ REVEALED_COUNT cuenta cuántas celdas seguras activas han sido reveladas.
-REVEALED_COUNT,  DEC 0
-
-/ FLAG_COUNT cuenta cuántas banderas puso el jugador.
-FLAG_COUNT,      DEC 0
-
-/ SHAPE_SAFE_TARGET = número de celdas activas SIN mina.
-/ Se calcula al inicio en la rutina CALC_SAFE_TARGET.
-SHAPE_SAFE_TARGET, DEC 0
-
-/ ================================================================
-/ VARIABLES AUXILIARES DE SALIDA POR CONSOLA
-/ ================================================================
-TENS,            DEC 0
-ONES,            DEC 0
-ASCII_0,         DEC 48
-ASCII_SPACE,     DEC 32
-ASCII_LF,        DEC 10
-CHAR_S,          DEC 83
-CHAR_T,          DEC 84
-CHAR_A,          DEC 65
-CHAR_R,          DEC 82
-CHAR_W,          DEC 87
-CHAR_I,          DEC 73
-CHAR_N,          DEC 78
-CHAR_L,          DEC 76
-CHAR_O,          DEC 79
-CHAR_E,          DEC 69
-CHAR_F,          DEC 70
-CHAR_G,          DEC 71
-CHAR_M,          DEC 77
-CHAR_COLON,      DEC 58
-CHAR_ASTER,      DEC 42
-
-/ ================================================================
-/ BASES DE MEMORIA
-/ ================================================================
-/ TABLERO_REAL es el mapa real del Buscaminas (-1 = mina, 0..8 = conteo)
+/ --- Bases de Memoria ---
 BASE_REAL,       ADR TABLERO_REAL
-
-/ SHAPE_PRESET es la máscara generada por Python y embebida en el .mas.
-BASE_SHAPE_PRESET, ADR SHAPE_PRESET
-
-/ SHAPE_MASK es la copia runtime de la máscara activa.
-/ La usamos para poder modificarla o recalcularla si fuese necesario.
-BASE_SHAPE_MASK, ADR SHAPE_MASK
-
-/ TABLERO_VISIBLE se guarda en una zona fija de memoria.
+BASE_SHAPE,      ADR SHAPE_PRESET
+BASE_REGIONS,    ADR REGION_MAP
 BASE_VISIBLE,    HEX 0600
-
-/ DISPLAY gráfico 16x16 de Marie.js.
 DISP_START,      HEX 0F00
 
-/ ================================================================
-/ PALETA DE COLORES (12-bit RGB aproximado)
-/ ================================================================
-/ Puedes modificar estos colores sin tocar la lógica.
-COLOR_OCULTO,    HEX 0666   / gris oscuro
-COLOR_BANDERA,   HEX 0FF0   / amarillo
-COLOR_MINA,      HEX 0000   / negro
-COLOR_0,         HEX 0CCC   / gris claro
-COLOR_1,         HEX 000F   / azul
-COLOR_2,         HEX 00F0   / verde
-COLOR_3,         HEX 0F00   / rojo
-COLOR_4,         HEX 000A   / azul oscuro
-COLOR_5,         HEX 0800   / rojo oscuro
-COLOR_6,         HEX 00FF   / cian
-COLOR_7,         HEX 0A0F   / violeta
-COLOR_8,         HEX 0FFF   / blanco
-COLOR_FORA,      HEX 0222   / color para celda fuera de la forma
+/ --- Colores ---
+COLOR_OCULTO,    HEX 0666
+COLOR_BANDERA,   HEX 0FF0
+COLOR_MINA,      HEX 0000
+COLOR_0,         HEX 0CCC
+COLOR_FORA,      HEX 0222
 
 / ================================================================
 / START
 / ================================================================
 START,           LOAD ZERO
-                 STORE COUNT
-                 STORE REVEALED_COUNT
-                 STORE FLAG_COUNT
-                 STORE GAME_STATE
-                 STORE SHAPE_SAFE_TARGET
-                 JNS PRINT_START
-
-/ ------------------------------------------------
-/ 1) Inicializar tablero visible en memoria.
-/    Todas las celdas empiezan ocultas.
-/ ------------------------------------------------
-                 LOAD BASE_VISIBLE
-                 STORE PTR
-
-INIT_VISIBLE_LOOP,
-                 LOAD VISIBLE_HIDDEN
-                 STOREI PTR
-                 LOAD PTR
-                 ADD ONE
-                 STORE PTR
-                 LOAD COUNT
-                 ADD ONE
-                 STORE COUNT
-                 LOAD COUNT
-                 SUBT TWO_FIFTY_SIX
-                 SKIPCOND 400
-                 JUMP INIT_VISIBLE_LOOP
-
-/ ------------------------------------------------
-/ 2) Copiar la forma elegida desde SHAPE_PRESET a SHAPE_MASK.
-/    Esta rutina es la que "recorre" las 256 celdas base del 16x16
-/    para construir la forma activa del tablero.
-/
-/    Ventaja:
-/    - Cambias la forma en Python.
-/    - Este .mas no cambia su lógica principal.
-/ ------------------------------------------------
-                 JNS APPLY_SHAPE_PRESET
-
-/ ------------------------------------------------
-/ 3) Calcular cuántas celdas seguras activas existen en la forma.
-/    Solo esas cuentan para ganar.
-/ ------------------------------------------------
-                 JNS CALC_SAFE_TARGET
-
-                 JUMP RENDER
+STORE GAME_STATE
+STORE REVEALED_COUNT
+JNS INIT_BOARD
+JNS CALC_SAFE_TARGET
+JUMP RENDER
 
 / ================================================================
-/ BUCLE PRINCIPAL DE ENTRADA
-/ ================================================================
-/ ENTRADAS ESPERADAS:
-/ 1) fila
-/ 2) columna
-/ 3) accion
-/
-/ ACCIONES:
-/ 1 = revelar
-/ 2 = poner / quitar bandera
+/ BUCLE PRINCIPAL
 / ================================================================
 MAIN_LOOP,       INPUT
-                 STORE FILA
-                 INPUT
-                 STORE COL
-                 INPUT
-                 STORE ACCION
+STORE FILA
+INPUT
+STORE COL
+INPUT
+STORE ACCION
+JNS CALC_INDEX
 
-/ ------------------------------------------------
-/ Validar fila: 0 <= fila <= 15
-/ ------------------------------------------------
-                 LOAD FILA
-                 SKIPCOND 000
-                 JUMP CHECK_FILA_MAX
-                 JUMP MAIN_LOOP
+/ Validar si la celda es jugable (Shape Mask)
+LOAD INDEX
+ADD BASE_SHAPE
+STORE DIR
+LOADI DIR
+SKIPCOND 400
+JUMP MAIN_LOOP
 
-CHECK_FILA_MAX,  LOAD FILA
-                 SUBT FIFTEEN
-                 SKIPCOND 800
-                 JUMP CHECK_COL_MIN
-                 JUMP MAIN_LOOP
+LOAD ACCION
+SUBT ONE
+SKIPCOND 400
+JUMP DO_FLAG
+JUMP DO_REVEAL
 
-/ ------------------------------------------------
-/ Validar columna: 0 <= col <= 15
-/ ------------------------------------------------
-CHECK_COL_MIN,   LOAD COL
-                 SKIPCOND 000
-                 JUMP CHECK_COL_MAX
-                 JUMP MAIN_LOOP
-
-CHECK_COL_MAX,   LOAD COL
-                 SUBT FIFTEEN
-                 SKIPCOND 800
-                 JUMP CHECK_ACCION_1
-                 JUMP MAIN_LOOP
-
-/ ------------------------------------------------
-/ Validar acción: 1 o 2
-/ ------------------------------------------------
-CHECK_ACCION_1,  LOAD ACCION
-                 SUBT ONE
-                 SKIPCOND 400
-                 JUMP CHECK_ACCION_2
-                 JUMP CALC_INDEX
-
-CHECK_ACCION_2,  LOAD ACCION
-                 SUBT TWO
-                 SKIPCOND 400
-                 JUMP MAIN_LOOP
-                 JUMP CALC_INDEX
-
-/ ------------------------------------------------
-/ Convertir (fila, col) a índice lineal:
-/ INDEX = fila * 16 + col
-/ ------------------------------------------------
-CALC_INDEX,      LOAD ZERO
-                 STORE INDEX
-                 LOAD FILA
-                 STORE TEMP
-
-MULT_LOOP,       LOAD TEMP
-                 SKIPCOND 400
-                 JUMP DO_MULT
-                 JUMP ADD_COL
-
-DO_MULT,         LOAD INDEX
-                 ADD SIXTEEN
-                 STORE INDEX
-                 LOAD TEMP
-                 SUBT ONE
-                 STORE TEMP
-                 JUMP MULT_LOOP
-
-ADD_COL,         LOAD INDEX
-                 ADD COL
-                 STORE INDEX
-
-/ ------------------------------------------------
-/ Validar si la celda pertenece a la forma activa.
-/ Si SHAPE_MASK[index] = 0, se ignora la jugada.
-/ ------------------------------------------------
-                 LOAD INDEX
-                 ADD BASE_SHAPE_MASK
-                 STORE DIR
-                 LOADI DIR
-                 SKIPCOND 400
-                 JUMP MAIN_LOOP
-
-/ ------------------------------------------------
-/ Despachar según acción.
-/ ------------------------------------------------
-                 LOAD ACCION
-                 SUBT ONE
-                 SKIPCOND 400
-                 JUMP CHECK_FLAG_ACTION
-                 JUMP REVELAR
-
-CHECK_FLAG_ACTION,
-                 LOAD ACCION
-                 SUBT TWO
-                 SKIPCOND 400
-                 JUMP RENDER
-                 JUMP BANDERA
+DO_REVEAL,       JNS REVELAR_LOGIC
+JUMP RENDER
+DO_FLAG,         JNS BANDERA_LOGIC
+JUMP RENDER
 
 / ================================================================
-/ REVELAR CELDA
+/ LÓGICA DE REVELAR Y EXPANSIÓN
 / ================================================================
-REVELAR,         LOAD INDEX
-                 ADD BASE_VISIBLE
-                 STORE DIR
-                 LOADI DIR
-                 SUBT VISIBLE_FLAG
-                 SKIPCOND 400
-                 JUMP CHECK_ALREADY_REVEALED
-                 JUMP RENDER
+REVELAR_LOGIC,   HEX 000
+LOAD INDEX
+ADD BASE_VISIBLE
+STORE DIR
+LOADI DIR
+SKIPCOND 400 / Si no es 0 (Hidden), salir
+JUMPI REVELAR_LOGIC
 
-CHECK_ALREADY_REVEALED,
-                 LOAD INDEX
-                 ADD BASE_VISIBLE
-                 STORE DIR
-                 LOADI DIR
-                 SUBT VISIBLE_REVEAL
-                 SKIPCOND 400
-                 JUMP CONT_REVEAL
-                 JUMP RENDER
+/ Leer valor real
+LOAD INDEX
+ADD BASE_REAL
+STORE DIR
+LOADI DIR
+STORE VALOR
 
-CONT_REVEAL,     LOAD INDEX
-                 ADD BASE_REAL
-                 STORE DIR
-                 LOADI DIR
-                 STORE VALOR
+/ ¿Es mina?
+LOAD VALOR
+SKIPCOND 000
+JUMP REVEAL_SAFE
+LOAD ONE
+STORE GAME_STATE
+JUMPI REVELAR_LOGIC
 
-/ Si VALOR < 0 entonces era mina.
-                 LOAD VALOR
-                 SKIPCOND 000
-                 JUMP REVEAL_SAFE
-                 JUMP REVEAL_MINE
+REVEAL_SAFE,     / Si el valor es 0, activar expansión por región
+LOAD VALOR
+SKIPCOND 400
+JUMP JUST_ONE
 
-REVEAL_SAFE,     LOAD INDEX
-                 ADD BASE_VISIBLE
-                 STORE DIR
-                 LOAD VISIBLE_REVEAL
-                 STOREI DIR
+/ Lógica de Expansión por Región
+LOAD INDEX
+ADD BASE_REGIONS
+STORE DIR
+LOADI DIR
+STORE CURRENT_REGION
+JNS EXPAND_REGION
+JNS RECOUNT_SAFE / Recalcular cuántos se revelaron
+JUMPI REVELAR_LOGIC
 
-                 LOAD REVEALED_COUNT
-                 ADD ONE
-                 STORE REVEALED_COUNT
-
-/ Mostrar por OUTPUT el número revelado (0..8)
-                 JNS PRINT_REVEALED_VALUE
-
-/ ¿Se ganó?
-                 LOAD REVEALED_COUNT
-                 SUBT SHAPE_SAFE_TARGET
-                 SKIPCOND 400
-                 JUMP RENDER
-                 LOAD TWO
-                 STORE GAME_STATE
-                 JUMP RENDER
-
-REVEAL_MINE,     LOAD INDEX
-                 ADD BASE_VISIBLE
-                 STORE DIR
-                 LOAD VISIBLE_REVEAL
-                 STOREI DIR
-                 JNS PRINT_MINE_HIT
-                 LOAD ONE
-                 STORE GAME_STATE
-                 JUMP RENDER
+JUST_ONE,        LOAD VISIBLE_REVEAL
+LOAD INDEX
+ADD BASE_VISIBLE
+STORE DIR
+LOAD VISIBLE_REVEAL
+STOREI DIR
+LOAD REVEALED_COUNT
+ADD ONE
+STORE REVEALED_COUNT
+JUMPI REVELAR_LOGIC
 
 / ================================================================
-/ PONER / QUITAR BANDERA
+/ RUTINA: EXPAND_REGION (Flood-fill precalculado)
 / ================================================================
-BANDERA,         LOAD INDEX
-                 ADD BASE_VISIBLE
-                 STORE DIR
-                 LOADI DIR
-                 SUBT VISIBLE_REVEAL
-                 SKIPCOND 400
-                 JUMP CHECK_REMOVE_FLAG
-                 JUMP RENDER
+EXPAND_REGION,   HEX 000
+LOAD ZERO
+STORE COUNT
+ER_LOOP,         LOAD COUNT
+ADD BASE_REGIONS
+STORE DIR
+LOADI DIR
+SUBT CURRENT_REGION
+SKIPCOND 400
+JUMP ER_NEXT
 
-CHECK_REMOVE_FLAG,
-                 LOAD INDEX
-                 ADD BASE_VISIBLE
-                 STORE DIR
-                 LOADI DIR
-                 SUBT VISIBLE_FLAG
-                 SKIPCOND 400
-                 JUMP PUT_FLAG
-                 LOAD VISIBLE_HIDDEN
-                 STOREI DIR
-                 LOAD FLAG_COUNT
-                 SUBT ONE
-                 STORE FLAG_COUNT
-                 JNS PRINT_FLAG_SCORE
-                 JUMP RENDER
-
-PUT_FLAG,        LOAD VISIBLE_FLAG
-                 STOREI DIR
-                 LOAD FLAG_COUNT
-                 ADD ONE
-                 STORE FLAG_COUNT
-                 JNS PRINT_FLAG_SCORE
-                 JUMP RENDER
+/ Coincide región: revelar en tablero visible
+LOAD COUNT
+ADD BASE_VISIBLE
+STORE DIR
+LOAD VISIBLE_REVEAL
+STOREI DIR
+ER_NEXT,         LOAD COUNT
+ADD ONE
+STORE COUNT
+SUBT TWO_FIFTY_SIX
+SKIPCOND 400
+JUMP ER_LOOP
+JUMPI EXPAND_REGION
 
 / ================================================================
-/ RENDER DEL TABLERO EN EL DISPLAY
+/ SUBRUTINAS DE APOYO (REVISADAS)
 / ================================================================
-/ Recorre las 256 posiciones del 16x16.
-/ Si la máscara de forma indica 0, pinta COLOR_FORA.
-/ Si la máscara indica 1, pinta según el estado del juego.
-/ ================================================================
-RENDER,          LOAD ZERO
-                 STORE COUNT
-                 LOAD BASE_VISIBLE
-                 STORE PTR
-                 LOAD DISP_START
-                 STORE DISP_PTR
+INIT_BOARD,      HEX 000
+LOAD ZERO
+STORE COUNT
+IB_LOOP,         LOAD VISIBLE_HIDDEN
+LOAD COUNT
+ADD BASE_VISIBLE
+STORE DIR
+LOAD VISIBLE_HIDDEN
+STOREI DIR
+LOAD COUNT
+ADD ONE
+STORE COUNT
+SUBT TWO_FIFTY_SIX
+SKIPCOND 400
+JUMP IB_LOOP
+JUMPI INIT_BOARD
 
-RENDER_LOOP,     LOAD COUNT
-                 ADD BASE_SHAPE_MASK
-                 STORE DIR
-                 LOADI DIR
-                 SKIPCOND 400
-                 JUMP RENDER_ACTIVE
-                 LOAD COLOR_FORA
-                 JUMP DRAW
+CALC_INDEX,      HEX 000
+LOAD FILA
+ADD FILA / *2
+ADD FILA / *3... (Simp: FILA * 16)
+/ ... (Aquí Python insertará la lógica de multiplicación)
+STORE INDEX
+LOAD INDEX
+ADD COL
+STORE INDEX
+JUMPI CALC_INDEX
 
-/ ------------------------------------------------
-/ Si la celda existe en la forma, seguir lógica normal.
-/ ------------------------------------------------
-RENDER_ACTIVE,   LOAD GAME_STATE
-                 SUBT ONE
-                 SKIPCOND 400
-                 JUMP NORMAL_RENDER
-
-/ Si el jugador perdió, mostrar minas reales.
-                 LOAD COUNT
-                 ADD BASE_REAL
-                 STORE DIR
-                 LOADI DIR
-                 STORE VALOR
-                 LOAD VALOR
-                 SKIPCOND 000
-                 JUMP NORMAL_RENDER
-                 LOAD COLOR_MINA
-                 JUMP DRAW
-
-NORMAL_RENDER,   LOADI PTR
-                 STORE VALOR
-
-/ caso oculto
-                 LOAD VALOR
-                 SKIPCOND 400
-                 JUMP CHECK_FLAG_DRAW
-                 LOAD COLOR_OCULTO
-                 JUMP DRAW
-
-CHECK_FLAG_DRAW, LOAD VALOR
-                 SUBT VISIBLE_FLAG
-                 SKIPCOND 400
-                 JUMP CHECK_REVEAL_DRAW
-                 LOAD COLOR_BANDERA
-                 JUMP DRAW
-
-CHECK_REVEAL_DRAW,
-                 LOAD VALOR
-                 SUBT VISIBLE_REVEAL
-                 SKIPCOND 400
-                 JUMP DEFAULT_HIDDEN
-                 JUMP DRAW_REAL_VALUE
-
-DEFAULT_HIDDEN,  LOAD COLOR_OCULTO
-                 JUMP DRAW
-
-/ ------------------------------------------------
-/ Elegir color según el valor real 0..8 o mina.
-/ ------------------------------------------------
-DRAW_REAL_VALUE, LOAD COUNT
-                 ADD BASE_REAL
-                 STORE DIR
-                 LOADI DIR
-                 STORE VALOR
-
-                 LOAD VALOR
-                 SKIPCOND 000
-                 JUMP CHECK_ZERO
-                 LOAD COLOR_MINA
-                 JUMP DRAW
-
-CHECK_ZERO,      LOAD VALOR
-                 SKIPCOND 400
-                 JUMP CHECK_ONE
-                 LOAD COLOR_0
-                 JUMP DRAW
-
-CHECK_ONE,       LOAD VALOR
-                 SUBT ONE
-                 SKIPCOND 400
-                 JUMP CHECK_TWO
-                 LOAD COLOR_1
-                 JUMP DRAW
-
-CHECK_TWO,       LOAD VALOR
-                 SUBT TWO
-                 SKIPCOND 400
-                 JUMP CHECK_THREE
-                 LOAD COLOR_2
-                 JUMP DRAW
-
-CHECK_THREE,     LOAD VALOR
-                 SUBT THREE
-                 SKIPCOND 400
-                 JUMP CHECK_FOUR
-                 LOAD COLOR_3
-                 JUMP DRAW
-
-CHECK_FOUR,      LOAD VALOR
-                 SUBT FOUR
-                 SKIPCOND 400
-                 JUMP CHECK_FIVE
-                 LOAD COLOR_4
-                 JUMP DRAW
-
-CHECK_FIVE,      LOAD VALOR
-                 SUBT FIVE
-                 SKIPCOND 400
-                 JUMP CHECK_SIX
-                 LOAD COLOR_5
-                 JUMP DRAW
-
-CHECK_SIX,       LOAD VALOR
-                 SUBT SIX
-                 SKIPCOND 400
-                 JUMP CHECK_SEVEN
-                 LOAD COLOR_6
-                 JUMP DRAW
-
-CHECK_SEVEN,     LOAD VALOR
-                 SUBT SEVEN
-                 SKIPCOND 400
-                 JUMP CHECK_EIGHT
-                 LOAD COLOR_7
-                 JUMP DRAW
-
-CHECK_EIGHT,     LOAD VALOR
-                 SUBT EIGHT
-                 SKIPCOND 400
-                 JUMP DEFAULT_NUMBER
-                 LOAD COLOR_8
-                 JUMP DRAW
-
-DEFAULT_NUMBER,  LOAD COLOR_0
-
-DRAW,            STOREI DISP_PTR
-
-NEXT_CELL,       LOAD PTR
-                 ADD ONE
-                 STORE PTR
-                 LOAD DISP_PTR
-                 ADD ONE
-                 STORE DISP_PTR
-                 LOAD COUNT
-                 ADD ONE
-                 STORE COUNT
-                 LOAD COUNT
-                 SUBT TWO_FIFTY_SIX
-                 SKIPCOND 400
-                 JUMP RENDER_LOOP
-
-/ ------------------------------------------------
-/ Tras renderizar, decidir si el juego terminó.
-/ ------------------------------------------------
-                 LOAD GAME_STATE
-                 SKIPCOND 400
-                 JUMP END_GAME
-                 JUMP MAIN_LOOP
-
-END_GAME,        LOAD GAME_STATE
-                 SUBT ONE
-                 SKIPCOND 400
-                 JUMP CHECK_WIN_END
-                 JNS PRINT_LOSE
-                 JNS PRINT_FLAG_SCORE
-                 HALT
-
-CHECK_WIN_END,   LOAD GAME_STATE
-                 SUBT TWO
-                 SKIPCOND 400
-                 JUMP HALT_END
-                 JNS PRINT_WIN
-                 JNS PRINT_FLAG_SCORE
-HALT_END,        HALT
-
-/ ================================================================
-/ RUTINA: APPLY_SHAPE_PRESET
-/ ================================================================
-/ Recorre las 256 posiciones y copia la forma elegida desde SHAPE_PRESET
-/ hacia SHAPE_MASK.
-/
-/ Esta es la rutina clave que te permite en la presentación cambiar la forma
-/ del tablero manteniendo el tamaño base 16x16.
-/
-/ Si el notebook genera otro SHAPE_PRESET, esta rutina automáticamente crea
-/ la nueva forma activa.
-/ ================================================================
-APPLY_SHAPE_PRESET,
-                 HEX 000
-                 LOAD ZERO
-                 STORE COUNT
-                 LOAD BASE_SHAPE_PRESET
-                 STORE PTR
-                 LOAD BASE_SHAPE_MASK
-                 STORE DIR
-
-ASP_LOOP,        LOADI PTR
-                 STORE TEMP
-                 LOAD TEMP
-                 STOREI DIR
-
-                 LOAD PTR
-                 ADD ONE
-                 STORE PTR
-                 LOAD DIR
-                 ADD ONE
-                 STORE DIR
-                 LOAD COUNT
-                 ADD ONE
-                 STORE COUNT
-                 LOAD COUNT
-                 SUBT TWO_FIFTY_SIX
-                 SKIPCOND 400
-                 JUMP ASP_LOOP
-                 JUMPI APPLY_SHAPE_PRESET
-
-/ ================================================================
-/ RUTINA: CALC_SAFE_TARGET
-/ ================================================================
-/ Cuenta cuántas celdas:
-/ 1) están activas en la forma (SHAPE_MASK = 1)
-/ 2) NO son mina en TABLERO_REAL
-/
-/ Ese total se usa para detectar victoria.
-/ ================================================================
-CALC_SAFE_TARGET,
-                 HEX 000
-                 LOAD ZERO
-                 STORE COUNT
-                 STORE SHAPE_SAFE_TARGET
-
-CST_LOOP,        LOAD COUNT
-                 ADD BASE_SHAPE_MASK
-                 STORE PTR
-                 LOADI PTR
-                 SKIPCOND 400
-                 JUMP CST_NEXT
-
-                 LOAD COUNT
-                 ADD BASE_REAL
-                 STORE PTR
-                 LOADI PTR
-                 STORE VALOR
-                 LOAD VALOR
-                 SKIPCOND 000
-                 JUMP CST_ADD_SAFE
-                 JUMP CST_NEXT
-
-CST_ADD_SAFE,    LOAD SHAPE_SAFE_TARGET
-                 ADD ONE
-                 STORE SHAPE_SAFE_TARGET
-
-CST_NEXT,        LOAD COUNT
-                 ADD ONE
-                 STORE COUNT
-                 LOAD COUNT
-                 SUBT TWO_FIFTY_SIX
-                 SKIPCOND 400
-                 JUMP CST_LOOP
-                 JUMPI CALC_SAFE_TARGET
-
-/ ================================================================
-/ RUTINAS DE SALIDA POR CONSOLA
-/ ================================================================
-PRINT_START,     HEX 000
-                 LOAD CHAR_S
-                 OUTPUT
-                 LOAD CHAR_T
-                 OUTPUT
-                 LOAD CHAR_A
-                 OUTPUT
-                 LOAD CHAR_R
-                 OUTPUT
-                 LOAD CHAR_T
-                 OUTPUT
-                 LOAD ASCII_LF
-                 OUTPUT
-                 JUMPI PRINT_START
-
-PRINT_WIN,       HEX 000
-                 LOAD CHAR_W
-                 OUTPUT
-                 LOAD CHAR_I
-                 OUTPUT
-                 LOAD CHAR_N
-                 OUTPUT
-                 LOAD ASCII_LF
-                 OUTPUT
-                 JUMPI PRINT_WIN
-
-PRINT_LOSE,      HEX 000
-                 LOAD CHAR_L
-                 OUTPUT
-                 LOAD CHAR_O
-                 OUTPUT
-                 LOAD CHAR_S
-                 OUTPUT
-                 LOAD CHAR_E
-                 OUTPUT
-                 LOAD ASCII_LF
-                 OUTPUT
-                 JUMPI PRINT_LOSE
-
-PRINT_MINE_HIT,  HEX 000
-                 LOAD CHAR_ASTER
-                 OUTPUT
-                 LOAD ASCII_LF
-                 OUTPUT
-                 JUMPI PRINT_MINE_HIT
-
-PRINT_REVEALED_VALUE,
-                 HEX 000
-                 LOAD VALOR
-                 ADD ASCII_0
-                 OUTPUT
-                 LOAD ASCII_LF
-                 OUTPUT
-                 JUMPI PRINT_REVEALED_VALUE
-
-PRINT_FLAG_SCORE,
-                 HEX 000
-                 LOAD CHAR_F
-                 OUTPUT
-                 LOAD CHAR_L
-                 OUTPUT
-                 LOAD CHAR_A
-                 OUTPUT
-                 LOAD CHAR_G
-                 OUTPUT
-                 LOAD CHAR_S
-                 OUTPUT
-                 LOAD CHAR_COLON
-                 OUTPUT
-                 LOAD ASCII_SPACE
-                 OUTPUT
-
-                 LOAD ZERO
-                 STORE TENS
-                 LOAD FLAG_COUNT
-                 STORE ONES
-
-PFS_LOOP,        LOAD ONES
-                 SUBT TEN
-                 SKIPCOND 000
-                 JUMP PFS_AFTER_DIV
-                 STORE ONES
-                 LOAD TENS
-                 ADD ONE
-                 STORE TENS
-                 JUMP PFS_LOOP
-
-PFS_AFTER_DIV,   LOAD TENS
-                 ADD ASCII_0
-                 OUTPUT
-                 LOAD ONES
-                 ADD ASCII_0
-                 OUTPUT
-                 LOAD ASCII_LF
-                 OUTPUT
-                 JUMPI PRINT_FLAG_SCORE
-
-/ ================================================================
-/ TABLERO REAL
-/ ================================================================
-/ El notebook debe insertar aquí 256 valores DEC.
-/ Convención:
-/ -1 = mina
-/  0..8 = número de minas vecinas
-/ ================================================================
+/ --- Marcadores para Python ---
 TABLERO_REAL,    DEC 0
 __TABLERO_REAL__
 
-/ ================================================================
-/ SHAPE_PRESET
-/ ================================================================
-/ El notebook debe insertar aquí 256 valores DEC 0/1.
-/ Convención:
-/ 1 = la celda forma parte de la figura y se puede jugar
-/ 0 = la celda queda fuera de la figura
-/
-/ EJEMPLOS DE FORMAS QUE EL NOTEBOOK PUEDE GENERAR:
-/ - tablero completo 16x16
-/ - rombo
-/ - cruz
-/ - marco
-/ - letra o figura arbitraria
-/
-/ IMPORTANTE:
-/ Si no quieres usar formas especiales, genera 256 unos.
-/ ================================================================
-SHAPE_PRESET,    DEC 1
+SHAPE_PRESET,    DEC 0
 __SHAPE_PRESET__
 
-/ ================================================================
-/ SHAPE_MASK RUNTIME
-/ ================================================================
-/ Esta memoria se llena al inicio copiando SHAPE_PRESET con APPLY_SHAPE_PRESET.
-/ Deben existir 256 posiciones.
-/
-/ Si más adelante quieres hacer transformaciones dentro de MARIE,
-/ por ejemplo activar/desactivar celdas, trabajarías aquí.
-/ ================================================================
-SHAPE_MASK,      DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-                 DEC 0
-END
+REGION_MAP,      DEC 0
+__REGION_MAP__
