@@ -1,5 +1,5 @@
 / ==========================================
-/ BUSCAMINAS MARIE - LÓGICA COMPLETA V2
+/ BUSCAMINAS MARIE - LÓGICA COMPLETA V3
 / ==========================================
 ORG 000
 JUMP START
@@ -23,6 +23,11 @@ CURR_REG, DEC 0
 ZERO, DEC 0
 ONE, DEC 1
 TWO, DEC 2
+THREE, DEC 3
+FOUR, DEC 4
+FIVE, DEC 5
+SIX, DEC 6
+SEVEN, DEC 7
 SIXTEEN, DEC 16
 MAX_CELLS, DEC 256
 ST_HIDDEN, DEC 0
